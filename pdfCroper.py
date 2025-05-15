@@ -79,9 +79,27 @@ class PDFCropperApp:
     def apply_crop_to_all(self):
         if self.pdf_document and self.rect:
             for i in range(len(self.pdf_document)):
+                page = self.pdf_document[i]
+                media_box = page.rect
+
                 # Adjust the rectangle according to the scale factor
                 scaled_rect = [coord / self.scale_factor for coord in self.rect]
-                self.pdf_document[i].set_cropbox(fitz.Rect(scaled_rect[0], scaled_rect[1], scaled_rect[2], scaled_rect[3]))
+
+                # Ensure the crop rectangle is within the MediaBox
+                scaled_rect = [
+                    max(media_box.x0, min(scaled_rect[0], media_box.x1)),
+                    max(media_box.y0, min(scaled_rect[1], media_box.y1)),
+                    max(media_box.x0, min(scaled_rect[2], media_box.x1)),
+                    max(media_box.y0, min(scaled_rect[3], media_box.y1))
+                ]
+
+                # Ensure the crop box has a valid area
+                if scaled_rect[2] > scaled_rect[0] and scaled_rect[3] > scaled_rect[1]:
+                    try:
+                        page.set_cropbox(fitz.Rect(scaled_rect[0], scaled_rect[1], scaled_rect[2], scaled_rect[3]))
+                    except ValueError as e:
+                        messagebox.showerror("Error", f"Error cropping page {i + 1}: {e}")
+                        continue
 
             output_path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF Files", "*.pdf")])
             if output_path:
@@ -89,6 +107,7 @@ class PDFCropperApp:
                 messagebox.showinfo("Success", "Cropped PDF saved successfully.")
             self.pdf_document.close()
             self.pdf_document = None  # Reset the document reference
+
 
 if __name__ == "__main__":
     root = tk.Tk()
